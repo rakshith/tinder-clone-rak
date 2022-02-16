@@ -86,6 +86,25 @@ const HomeScreen = () => {
           cardIndex={0}
           animateCardOpacity
           verticalSwipe={false}
+          overlayLabels={{
+            left: {
+              title: "NOPE",
+              style: {
+                label: {
+                  textAlign: "right",
+                  color: "red",
+                },
+              },
+            },
+            right: {
+              title: "MATCH",
+              style: {
+                label: {
+                  color: "#4DED30",
+                },
+              },
+            },
+          }}
           renderCard={(card) => (
             <View key={card.id} style={tw`relative bg-white h-3/4 rounded-xl`}>
               <Image
@@ -116,6 +135,7 @@ const HomeScreen = () => {
 
 export default HomeScreen;
 
+// style sheet required for shadow to cards
 const styles = StyleSheet.create({
   cardShadow: {
     shadowColor: "#000",
