@@ -7,12 +7,14 @@ import {
   Image,
   StyleSheet,
 } from "react-native";
-import React, { useLayoutEffect, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigation } from "@react-navigation/core";
 import useAuth from "../hooks/useAuth";
 import tw from "twrnc";
 import { Ionicons, Entypo, AntDesign } from "@expo/vector-icons";
 import Swiper from "react-native-deck-swiper";
+import { collection, doc, onSnapshot } from "@firebase/firestore";
+import { db } from "../firebase";
 
 const DUMMY_DATA = [
   {
@@ -55,7 +57,39 @@ const DUMMY_DATA = [
 const HomeScreen = () => {
   const navigation = useNavigation();
   const { user, logout } = useAuth();
+  const [profiles, setProfiles] = useState([]);
   const swipeRef = useRef(null);
+
+  useLayoutEffect(
+    () =>
+      onSnapshot(doc(db, "users", user.uid), (snapshot) => {
+        console.log(snapshot);
+        if (!snapshot.exists()) {
+          navigation.navigate("Modal");
+        }
+      }),
+    []
+  );
+
+  useEffect(() => {
+    let unsub;
+
+    const fetchCards = async () => {
+      unsub = onSnapshot(collection(db, "users"), (snapshot) => {
+        setProfiles(
+          snapshot.docs
+            .filter((doc) => doc.id !== user.uid)
+            .map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            }))
+        );
+      });
+    };
+
+    fetchCards();
+    return unsub;
+  }, []);
 
   return (
     <SafeAreaView style={tw`flex-1`}>
@@ -67,7 +101,7 @@ const HomeScreen = () => {
             source={{ uri: user.photoURL }}
           />
         </TouchableOpacity>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate("Modal")}>
           <Image source={tw`h-14 w-14`} source={require("../logo.png")} />
         </TouchableOpacity>
 
@@ -83,7 +117,7 @@ const HomeScreen = () => {
         <Swiper
           ref={swipeRef}
           containerStyle={{ backgroundColor: "transparent" }}
-          cards={DUMMY_DATA}
+          cards={profiles}
           stackSize={5}
           cardIndex={0}
           animateCardOpacity
@@ -113,28 +147,49 @@ const HomeScreen = () => {
               },
             },
           }}
-          renderCard={(card) => (
-            <View key={card.id} style={tw`relative bg-white h-3/4 rounded-xl`}>
-              <Image
-                style={tw`absolute top-0 h-full w-full rounded-xl`}
-                source={{ uri: card.photoURL }}
-              />
+          renderCard={(card) =>
+            card ? (
+              <View
+                key={card.id}
+                style={tw`relative bg-white h-3/4 rounded-xl`}
+              >
+                <Image
+                  style={tw`absolute top-0 h-full w-full rounded-xl`}
+                  source={{ uri: card.photoURL }}
+                />
+                <View
+                  style={[
+                    tw`absolute bottom-0 w-full flex-row justify-between items-center bg-white w-full h-20 px-6 py-2`,
+                    styles.cardShadow,
+                  ]}
+                >
+                  <View>
+                    <Text style={tw`text-xl font-bold`}>
+                      {card.displayName}
+                    </Text>
+                    <Text>{card.occupation}</Text>
+                  </View>
+                  <Text style={tw`text-2xl font-bold`}>{card.age}</Text>
+                </View>
+              </View>
+            ) : (
               <View
                 style={[
-                  tw`absolute bottom-0 w-full flex-row justify-between items-center bg-white w-full h-20 px-6 py-2`,
+                  tw`relative bg-white h-3/4 rounded-xl justify-center items-center`,
                   styles.cardShadow,
                 ]}
               >
-                <View>
-                  <Text style={tw`text-xl font-bold`}>
-                    {card.firstName} {card.lastName}
-                  </Text>
-                  <Text>{card.occupation}</Text>
-                </View>
-                <Text style={tw`text-2xl font-bold`}>{card.age}</Text>
+                <Text style={tw`font-bold pb-5`}>No more profiles</Text>
+
+                <Image
+                  style={tw`h-20 w-full`}
+                  height={100}
+                  width={100}
+                  source={{ uri: "https://links.papareact.com/6gb" }}
+                />
               </View>
-            </View>
-          )}
+            )
+          }
         />
       </View>
 
