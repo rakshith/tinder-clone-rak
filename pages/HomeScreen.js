@@ -7,11 +7,11 @@ import {
   Image,
   StyleSheet,
 } from "react-native";
-import React, { useLayoutEffect } from "react";
+import React, { useLayoutEffect, useRef } from "react";
 import { useNavigation } from "@react-navigation/core";
 import useAuth from "../hooks/useAuth";
 import tw from "twrnc";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, Entypo, AntDesign } from "@expo/vector-icons";
 import Swiper from "react-native-deck-swiper";
 
 const DUMMY_DATA = [
@@ -55,7 +55,8 @@ const DUMMY_DATA = [
 const HomeScreen = () => {
   const navigation = useNavigation();
   const { user, logout } = useAuth();
-  console.log("HomeScreen", user);
+  const swipeRef = useRef(null);
+
   return (
     <SafeAreaView style={tw`flex-1`}>
       {/* Header */}
@@ -80,12 +81,19 @@ const HomeScreen = () => {
       {/* Cards */}
       <View style={tw`flex-1 -mt-6`}>
         <Swiper
+          ref={swipeRef}
           containerStyle={{ backgroundColor: "transparent" }}
           cards={DUMMY_DATA}
           stackSize={5}
           cardIndex={0}
           animateCardOpacity
           verticalSwipe={false}
+          onSwipedLeft={() => {
+            console.log("onSwipedLeft");
+          }}
+          onSwipedRight={() => {
+            console.log("onSwipedRight");
+          }}
           overlayLabels={{
             left: {
               title: "NOPE",
@@ -113,7 +121,7 @@ const HomeScreen = () => {
               />
               <View
                 style={[
-                  tw`absolute bottom-0 w-full flex-row justify-between bg-white w-full h-20 px-6 py-2`,
+                  tw`absolute bottom-0 w-full flex-row justify-between items-center bg-white w-full h-20 px-6 py-2`,
                   styles.cardShadow,
                 ]}
               >
@@ -128,6 +136,21 @@ const HomeScreen = () => {
             </View>
           )}
         />
+      </View>
+
+      <View style={tw`flex flex-row justify-evenly`}>
+        <TouchableOpacity
+          onPress={() => swipeRef.current.swipeLeft()}
+          style={tw`items-center justify-center rounded-full w-16 h-16 bg-red-200`}
+        >
+          <Entypo name="cross" size={24} color="red" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => swipeRef.current.swipeRight()}
+          style={tw`items-center justify-center rounded-full w-16 h-16 bg-green-200`}
+        >
+          <AntDesign name="heart" size={24} color="green" />
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
