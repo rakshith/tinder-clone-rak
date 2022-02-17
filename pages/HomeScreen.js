@@ -21,8 +21,11 @@ import {
   setDoc,
   getDocs,
   where,
+  getDoc,
+  serverTimestamp,
 } from "@firebase/firestore";
 import { db } from "../firebase";
+import generateId from "../lib/generateId";
 
 const DUMMY_DATA = [
   {
@@ -82,8 +85,6 @@ const HomeScreen = () => {
   useEffect(() => {
     let unsub;
     const fetchCards = async () => {
-      console.log("user.uid", user.uid);
-
       let passes = await getDocs(
         collection(db, "users", user.uid, "passes")
       ).then((snapshot) => snapshot.docs.map((doc) => doc.id));
@@ -94,7 +95,6 @@ const HomeScreen = () => {
 
       const passedUserIds = passes.length > 0 ? passes : ["test"]; // we cannot pass empty condition so dummy one passing for query
       const swipedUserIds = swipes.length > 0 ? swipes : ["test"];
-      console.log("passedUserIds", [...passedUserIds, ...swipedUserIds]);
 
       unsub = onSnapshot(
         query(
@@ -117,8 +117,6 @@ const HomeScreen = () => {
     return unsub;
   }, [db]);
 
-  console.log("profiles", profiles);
-
   const swipeLeft = (cardIndex) => {
     if (!profiles[cardIndex]) return;
 
@@ -127,12 +125,58 @@ const HomeScreen = () => {
     setDoc(doc(db, "users", user.uid, "passes", userSwiped.id), userSwiped);
   };
 
-  const swipeRight = (cardIndex) => {
+  const swipeRight = async (cardIndex) => {
     if (!profiles[cardIndex]) return;
 
     const userSwiped = profiles[cardIndex];
+    console.log("userSwiped", userSwiped);
 
-    setDoc(doc(db, "users", user.uid, "swipes", userSwiped.id), userSwiped);
+    const loggedInProfile = await (
+      await getDoc(doc(db, "users", user.uid))
+    ).data();
+    // check if the user swiped on you, this should be done on server for security reason instead of client.
+    console.log("loggedInProfile", loggedInProfile);
+
+    getDoc(doc(db, "users", userSwiped.id, "swipes", user.uid)).then(
+      (documentSnapshot) => {
+        if (documentSnapshot.exists()) {
+          // user has matched with you before you matched with them...
+          // create a MATCH!
+          console.log(`Hooray, you MATCHED with ${userSwiped.displayName}`);
+          setDoc(
+            doc(db, "users", user.uid, "swipes", userSwiped.id),
+            userSwiped
+          );
+
+          // CREATE MATCH!
+          setDoc(doc(db, "matches", generateId(user.uid, userSwiped.id)), {
+            users: {
+              [user.uid]: loggedInProfile,
+              [userSwiped.id]: userSwiped,
+            },
+            usersMatched: [user.uid, userSwiped.id],
+            timestamp: serverTimestamp(),
+          });
+
+          navigation.navigate("MatchModal", {
+            loggedInProfile,
+            userSwiped,
+          });
+        } else {
+          // User has swiped as first interaction between the two  or didnt get swiped on
+          console.log(
+            `you swiped on ${userSwiped.displayName} (${userSwiped.occupation})`
+          );
+
+          setDoc(
+            doc(db, "users", user.uid, "swipes", userSwiped.id),
+            userSwiped
+          );
+        }
+      }
+    );
+
+    // setDoc(doc(db, "users", user.uid, "swipes", userSwiped.id), userSwiped);
   };
 
   return (
@@ -167,11 +211,9 @@ const HomeScreen = () => {
           animateCardOpacity
           verticalSwipe={false}
           onSwipedLeft={(cardIndex) => {
-            console.log("onSwipedLeft");
             swipeLeft(cardIndex);
           }}
           onSwipedRight={(cardIndex) => {
-            console.log("onSwipedRight");
             swipeRight(cardIndex);
           }}
           overlayLabels={{
