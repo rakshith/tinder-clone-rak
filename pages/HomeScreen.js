@@ -13,7 +13,15 @@ import useAuth from "../hooks/useAuth";
 import tw from "twrnc";
 import { Ionicons, Entypo, AntDesign } from "@expo/vector-icons";
 import Swiper from "react-native-deck-swiper";
-import { collection, doc, onSnapshot } from "@firebase/firestore";
+import {
+  collection,
+  doc,
+  onSnapshot,
+  query,
+  setDoc,
+  getDocs,
+  where,
+} from "@firebase/firestore";
 import { db } from "../firebase";
 
 const DUMMY_DATA = [
@@ -63,7 +71,7 @@ const HomeScreen = () => {
   useLayoutEffect(
     () =>
       onSnapshot(doc(db, "users", user.uid), (snapshot) => {
-        console.log(snapshot);
+        // console.log(snapshot);
         if (!snapshot.exists()) {
           navigation.navigate("Modal");
         }
@@ -73,23 +81,59 @@ const HomeScreen = () => {
 
   useEffect(() => {
     let unsub;
-
     const fetchCards = async () => {
-      unsub = onSnapshot(collection(db, "users"), (snapshot) => {
-        setProfiles(
-          snapshot.docs
-            .filter((doc) => doc.id !== user.uid)
-            .map((doc) => ({
-              id: doc.id,
-              ...doc.data(),
-            }))
-        );
-      });
-    };
+      console.log("user.uid", user.uid);
 
+      let passes = await getDocs(
+        collection(db, "users", user.uid, "passes")
+      ).then((snapshot) => snapshot.docs.map((doc) => doc.id));
+
+      const swipes = await getDocs(
+        collection(db, "users", user.uid, "swipes")
+      ).then((snapshot) => snapshot.docs.map((doc) => doc.id));
+
+      const passedUserIds = passes.length > 0 ? passes : ["test"]; // we cannot pass empty condition so dummy one passing for query
+      const swipedUserIds = swipes.length > 0 ? swipes : ["test"];
+      console.log("passedUserIds", [...passedUserIds, ...swipedUserIds]);
+
+      unsub = onSnapshot(
+        query(
+          collection(db, "users"),
+          where("id", "not-in", [...passedUserIds, ...swipedUserIds])
+        ),
+        (snapshot) => {
+          setProfiles(
+            snapshot.docs
+              .filter((doc) => doc.id !== user.uid)
+              .map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+              }))
+          );
+        }
+      );
+    };
     fetchCards();
     return unsub;
-  }, []);
+  }, [db]);
+
+  console.log("profiles", profiles);
+
+  const swipeLeft = (cardIndex) => {
+    if (!profiles[cardIndex]) return;
+
+    const userSwiped = profiles[cardIndex];
+
+    setDoc(doc(db, "users", user.uid, "passes", userSwiped.id), userSwiped);
+  };
+
+  const swipeRight = (cardIndex) => {
+    if (!profiles[cardIndex]) return;
+
+    const userSwiped = profiles[cardIndex];
+
+    setDoc(doc(db, "users", user.uid, "swipes", userSwiped.id), userSwiped);
+  };
 
   return (
     <SafeAreaView style={tw`flex-1`}>
@@ -122,11 +166,13 @@ const HomeScreen = () => {
           cardIndex={0}
           animateCardOpacity
           verticalSwipe={false}
-          onSwipedLeft={() => {
+          onSwipedLeft={(cardIndex) => {
             console.log("onSwipedLeft");
+            swipeLeft(cardIndex);
           }}
-          onSwipedRight={() => {
+          onSwipedRight={(cardIndex) => {
             console.log("onSwipedRight");
+            swipeRight(cardIndex);
           }}
           overlayLabels={{
             left: {
